@@ -62,9 +62,12 @@ setup(
         'Topic :: Utilities',
     ],
     keywords=[
-        # eg: 'keyword1', 'keyword2', 'keyword3',
+        'poetry', 'metric analysis', 'silly lexical tricks'
     ],
     install_requires=[
+        'islex',
+        'islex-core',
+        'islex-entities',
         'click',
     ],
     extras_require={
