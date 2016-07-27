@@ -1,0 +1,16 @@
+[paths]
+source =
+   src/poetaster
+   */site-packages/poetaster
+
+[run]
+branch = true
+source =
+    poetaster
+    tests
+parallel = true
+
+[report]
+show_missing = true
+precision = 2
+omit = *migrations*
