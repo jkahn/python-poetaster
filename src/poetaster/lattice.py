@@ -2,9 +2,10 @@
 """Construct lattice of tokenizations from provided dictionary of
 string keys."""
 
-from collections import defaultdict
-from collections import Container
 import re
+from collections import Container
+from collections import defaultdict
+
 
 class BaseLattice(object):
     """DAG of analyses, where every arc comes from provided dictionary.
@@ -76,7 +77,7 @@ class RegexGazette(Container):
 
 
 class Lattice(BaseLattice):
-    """Uses two containers to determine wat token sequences can be."""
+    """Uses two containers to determine what token sequences can be."""
 
     def __init__(self, st, keeper, discardable=tuple()):
         self._keeper = keeper  # assert compiled regex?
