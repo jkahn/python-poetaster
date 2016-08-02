@@ -3,7 +3,8 @@
 string keys."""
 
 from collections import defaultdict
-
+from collections import Container
+import re
 
 class BaseLattice(object):
     """DAG of analyses, where every arc comes from provided dictionary.
@@ -60,18 +61,38 @@ class BaseLattice(object):
                                     breadcrumbs=new_breadcrumbs):
                 yield p
 
-    def path_to_tokens(self, path):
-        return tuple(self.substr(b, e) for b, e in path)
-
     @property
     def token_paths(self):
         return tuple(self.path_to_tokens(p) for p in self.all_paths())
 
 
-class DictionaryLattice(BaseLattice):
-    def __init__(self, st, dct):
-        self._dct = dct
-        super(DictionaryLattice, self).__init__(st)
+class RegexGazette(Container):
+    def __init__(self, pattern):
+        self._pattern = re.compile(pattern + r'$')
+        # assert pattern is regex?
+
+    def __contains__(self, thing):
+        return self._pattern.match(thing)
+
+
+class Lattice(BaseLattice):
+    """Uses two containers to determine wat token sequences can be."""
+
+    def __init__(self, st, keeper, discardable=tuple()):
+        self._keeper = keeper  # assert compiled regex?
+        self._discardable = discardable
+        super(Lattice, self).__init__(st)
 
     def legal(self, start, end):
-        return (self.substr(start, end) in self._dct)
+        s = self.substr(start, end)
+        return s in self._keeper or s in self._discardable
+
+    def contentful(self, start, end):
+        s = self.substr(start, end)
+        if s in self._discardable and s not in self._keeper:
+            return False
+        return True
+
+    def path_to_tokens(self, path):
+        return tuple(self.substr(b, e) for b, e in path
+                     if self.contentful(b, e))
