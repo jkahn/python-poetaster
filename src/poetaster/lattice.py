@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Construct lattice of tokenizations from provided dictionary of
 string keys."""
+from __future__ import print_function
 
 import re
 from collections import Container
@@ -48,23 +49,28 @@ class BaseLattice(object):
     def substr(self, start, end):
         return self._st[start:end]
 
-    def all_paths(self, position=0, breadcrumbs=()):
-        """Returns iterator over sequences of (begin, end) pairs that
-        completely cover the target."""
-        if position == self.end_sentinel:
-            # Reached end.
-            yield breadcrumbs
-            return
-        # Otherwise, recurse:
-        for endpt in self._forward[position]:
-            new_breadcrumbs = breadcrumbs + ((position, endpt),)
-            for p in self.all_paths(position=endpt,
-                                    breadcrumbs=new_breadcrumbs):
-                yield p
+    @property
+    def paths(self):
+        return tuple(self._all_paths(position=0, past_decorations=()))
 
     @property
-    def token_paths(self):
-        return tuple(self.path_to_tokens(p) for p in self.all_paths())
+    def token_sequences(self):
+        """iterable over tokenizations."""
+        return tuple(tuple(self.substr(b, e) for b, e in path)
+                     for path in self.paths)
+
+    def _all_paths(self, position, past_decorations):
+        """Returns iterator over sequences of (begin, end) pairs that
+        completely cover the target."""
+        for endpt in self._forward[position]:
+            decorations = past_decorations + ((position, endpt),)
+            if endpt == self.end_sentinel:
+                yield decorations
+            else:
+                for p in self._all_paths(
+                        position=endpt,
+                        past_decorations=decorations):
+                        yield p
 
 
 class RegexGazette(Container):
@@ -88,12 +94,21 @@ class Lattice(BaseLattice):
         s = self.substr(start, end)
         return s in self._keeper or s in self._discardable
 
+    def _clean_paths(self, paths):
+        """Override superclass; only return paths that delimit contentful."""
+        _sent = set()
+        for path in paths:
+            clean = tuple((b, e) for b, e in path if self.contentful(b, e))
+            if clean not in _sent:
+                yield clean
+                _sent.add(clean)
+
+    @property
+    def paths(self):
+        return list(self._clean_paths(super(Lattice, self).paths))
+
     def contentful(self, start, end):
         s = self.substr(start, end)
         if s in self._discardable and s not in self._keeper:
             return False
         return True
-
-    def path_to_tokens(self, path):
-        return tuple(self.substr(b, e) for b, e in path
-                     if self.contentful(b, e))

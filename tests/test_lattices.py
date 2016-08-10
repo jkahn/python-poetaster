@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import re
 
+from __future__ import print_function
 import pytest
 
 from poetaster.lattice import BaseLattice
@@ -17,31 +17,40 @@ def test_lattice():
 
     l = Lattice("a bc", keeper=frozenset(("a", " ", "d", "bc")))
     assert l
-    assert  ("a", " ", "bc") in l.token_paths
-    assert len(l.token_paths) == 1
+    assert  ("a", " ", "bc") in l.token_sequences
+    assert len(l.paths) == 1
 
 
 def test_ambiguous():
 
     l = Lattice("a bc", keeper=frozenset(("a", " ", "b", "c", "bc")))
     assert l
-    assert  ("a", " ", "bc") in l.token_paths
-    assert  ("a", " ", "b", "c") in l.token_paths
-    assert len(l.token_paths) == 2
+    assert  ("a", " ", "bc") in l.token_sequences
+    assert  ("a", " ", "b", "c") in l.token_sequences
+    assert len(l.paths) == 2
 
 def test_longer_string():
     d = frozenset(("new", "york", " ", ".", "i", "love", "new york", "city"))
     l = Lattice("i love new york city.", keeper=d)
     assert l
     assert ("i", " ", "love", " ", "new york",
-            " ", "city", ".") in l.token_paths
+            " ", "city", ".") in l.token_sequences
     assert ("i", " ", "love", " ", "new", " ", "york",
-            " ", "city", ".") in l.token_paths
+            " ", "city", ".") in l.token_sequences
 
 
 def test_discarding_gunge():
-    d = frozenset(("city", "new york", "new", "i", "<3"))
+    keeper = frozenset(("city", "new york", "new", "i", "<3"))
     discardable = RegexGazette(r'[0-9<>\'",.?!:;\s]+')
     s = "i <3 new york!"
-    l = Lattice(s, keeper=d, discardable=discardable)
-    assert ("i", "<3", "new york") in l.token_paths
+    assert len(s) == 14
+    assert "<3" in discardable
+    assert "i" in keeper
+    assert " " in discardable
+    assert "<3" in keeper
+    assert "new york" in keeper
+    assert "!" in discardable
+    l = Lattice(s, keeper=keeper, discardable=discardable)
+    assert l.end_sentinel == len(s)
+    print (l.paths)
+    assert ("i", "<3", "new york") in l.token_sequences
