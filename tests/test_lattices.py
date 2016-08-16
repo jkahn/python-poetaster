@@ -5,6 +5,7 @@ import pytest
 
 from poetaster.lattice import BaseLattice
 from poetaster.lattice import Lattice
+from poetaster.lattice import MultiLattice
 from poetaster.lattice import RegexGazette
 
 
@@ -54,3 +55,26 @@ def test_discarding_gunge():
     assert l.end_sentinel == len(s)
     print (l.paths)
     assert ("i", "<3", "new york") in l.token_sequences
+
+
+def test_transducer():
+    keeper = {'a': "A", 'b': "b", 'c': "C"}
+    discardable = RegexGazette(r'[0-9<>\'",.?!:;\s]+')
+    s = "a b c"
+    l = Lattice(s, keeper=keeper, discardable=discardable)
+    assert ("a", "b", "c") in l.token_sequences
+    assert ("a", "b", "c") not in l.transductions
+    assert ("A", "b", "C") in l.transductions
+    assert len(l.transductions) == 1
+
+
+def test_multi_transducer():
+    keeper = {'a': ["A", "a"], 'b': ["b"], 'c': ['c', 'C']}
+    discardable = RegexGazette(r'[0-9<>\'",.?!:;\s]+')
+    s = "a b c"
+    l = MultiLattice(s, keeper=keeper, discardable=discardable)
+    assert ("a", "b", "c") in l.token_sequences
+    assert ("a", "b", "c") in l.transductions
+    assert ("A", "b", "C") in l.transductions
+    assert ("A", "b", "c") in l.transductions
+    assert ("a", "b", "C") in l.transductions

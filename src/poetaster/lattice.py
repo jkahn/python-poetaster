@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import re
 from collections import Container
+from collections import Mapping
 from collections import defaultdict
 
 
@@ -112,3 +113,35 @@ class Lattice(BaseLattice):
         if s in self._discardable and s not in self._keeper:
             return False
         return True
+
+    @property
+    def transductions(self):
+        def _itr():
+            for p in self.paths:
+                for t in self._transductions(p, [()]):
+                    yield t
+        return list(_itr())
+
+    def _transduce(self, b, e):
+        assert isinstance(self._keeper, Mapping)
+        return [self._keeper[self.substr(b, e)]]
+
+    def _transductions(self, path, so_far):
+        if not path:
+            return so_far
+        span = path[0]
+
+        new_so_far = []
+        for t in self._transduce(*span):
+            for old_path in so_far:
+                new_so_far.append(old_path + tuple(t))
+        return self._transductions(path[1:], new_so_far)
+
+
+class MultiLattice(Lattice):
+    """Same as Lattice, only assumes keeper container has bag of 0+ labels
+    for each span.  Discardable container need not have such labels.
+    """
+
+    def _transduce(self, b, e):
+        return list(self._keeper[self.substr(b, e)])
