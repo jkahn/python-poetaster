@@ -4,6 +4,7 @@ from __future__ import print_function
 import pytest
 
 from poetaster.lattice import BaseLattice
+from poetaster.lattice import IslexOrthoLattice
 from poetaster.lattice import Lattice
 from poetaster.lattice import MultiLattice
 from poetaster.lattice import RegexGazette
@@ -78,3 +79,15 @@ def test_multi_transducer():
     assert ("A", "b", "C") in l.transductions
     assert ("A", "b", "c") in l.transductions
     assert ("a", "b", "C") in l.transductions
+
+
+def test_islex_transducer():
+    ilat = IslexOrthoLattice("help me now!")
+    assert ilat.transductions
+    assert len(ilat.transductions) == 2
+    orthos = set(tuple(w.ortho for w in t) for t in ilat.transductions)
+    assert ('help', 'me', 'now') in orthos
+    assert len(orthos) == 2  # FIXME: "he l p me now" not acceptable...
+    # ipas = [tuple(w.to_string() for w in t) for t in ilat.transductions]
+
+    # TODO: move some of these feature extractions to IslexLattice operations

@@ -6,7 +6,10 @@ from __future__ import print_function
 import re
 from collections import Container
 from collections import Mapping
+from collections import MutableMapping
 from collections import defaultdict
+
+import islex.data.core
 
 
 class BaseLattice(object):
@@ -134,7 +137,7 @@ class Lattice(BaseLattice):
         new_so_far = []
         for t in self._transduce(*span):
             for old_path in so_far:
-                new_so_far.append(old_path + tuple(t))
+                new_so_far.append(old_path + tuple([t]))
         return self._transductions(path[1:], new_so_far)
 
 
@@ -145,3 +148,57 @@ class MultiLattice(Lattice):
 
     def _transduce(self, b, e):
         return list(self._keeper[self.substr(b, e)])
+
+
+class TransformedMapping(MutableMapping):
+    def __init__(self, *args, **kwargs):
+        self._store = dict()
+        self.update(*args, **kwargs)
+
+    def __getitem__(self, key):
+        return self._store[self.__keytransform__(key)]
+
+    def __setitem__(self, key, value):
+        self._store[self.__keytransform__(key)] = value
+
+    def __delitem__(self, key):
+        del self._store[self.__keytransform__(key)]
+
+    def __iter__(self):
+        return iter(self._store)
+
+    def __len__(self):
+        return len(self._store)
+
+    def __keytransform__(self, key):
+        return key
+
+
+class CaseInsensitiveMapping(TransformedMapping):
+    def __keytransform__(self, key):
+        return key.lower()
+
+    @classmethod
+    def from_islex_stream(cls, stream):
+        d = cls()
+        for w in stream:
+            if w.ortho not in d:
+                d[w.ortho] = []
+            d[w.ortho].append(w)
+        return d
+
+
+# Also, build once in islex-core package.
+islex_core = CaseInsensitiveMapping.from_islex_stream(
+    islex.data.core.entries_stream())
+
+
+class IslexOrthoLattice(MultiLattice):
+    def __init__(self, st):
+        # Build an ortho-based dictionary
+        # TODO: consider immutability of this ortho_dict object.
+
+        discard = RegexGazette(r'[0-9<>\'",.?!:;\s]+')
+        super(IslexOrthoLattice, self).__init__(st=st,
+                                                keeper=islex_core,
+                                                discardable=discard)
