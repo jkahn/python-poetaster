@@ -65,7 +65,7 @@ setup(
         'poetry', 'metric analysis', 'silly lexical tricks'
     ],
     install_requires=[
-        'islex',
+        'islex>=0.2.2',
         'islex-core',
         'islex-entities',
         'click',

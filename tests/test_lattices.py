@@ -85,9 +85,13 @@ def test_islex_transducer():
     ilat = IslexOrthoLattice("help me now!")
     assert ilat.transductions
     assert len(ilat.transductions) == 2
-    orthos = set(tuple(w.ortho for w in t) for t in ilat.transductions)
-    assert ('help', 'me', 'now') in orthos
-    assert len(orthos) == 2  # FIXME: "he l p me now" not acceptable...
-    # ipas = [tuple(w.to_string() for w in t) for t in ilat.transductions]
+    assert ('help', 'me', 'now') in ilat.retokens
+    assert ('he', 'l', 'p', 'me', 'now') in ilat.retokens
+    assert len(ilat.retokens) == 2  # FIXME: "he l p me now" not acceptable...
 
-    # TODO: move some of these feature extractions to IslexLattice operations
+    assert len(ilat.pronunciations) == len(ilat.transductions)
+
+    assert (tuple(len(p) for p in ilat.pronunciations)
+            == tuple(len(t) for t in ilat.transductions))
+
+    assert (u"hˈɛlp", u"mˈi", u"nˈaʊ") in ilat.ipa_syllabifications
