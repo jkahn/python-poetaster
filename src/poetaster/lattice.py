@@ -8,6 +8,7 @@ import re
 
 from collections import Container
 from collections import Mapping
+from collections import Sequence
 from collections import defaultdict
 
 
@@ -153,6 +154,37 @@ class MultiLattice(Lattice):
         return list(self._keeper[self.substr(b, e)])
 
 
+class Transduction(Sequence):
+    """Consider moving Transduction and IslexOrthoLattice to a separate
+    module."""
+    def __init__(self, wordseq):
+        self._words = wordseq
+
+    def __len__(self):
+        return len(self._words)
+
+    def __getitem__(self, key):
+        return self._words[key]
+
+    @property
+    def retokenization(self):
+        return tuple(w.ortho for w in self._words)
+
+    @property
+    def pronunciation(self):
+        return tuple(itertools.chain.from_iterable(
+            w.prons for w in self._words))
+
+    @property
+    def syllabification(self):
+        return tuple(itertools.chain.from_iterable(
+            pron.sylls for pron in self.pronunciation))
+
+    @property
+    def ipa_syllabification(self):
+        return tuple(''.join(syll.ipa) for syll in self.syllabification)
+
+
 class IslexOrthoLattice(MultiLattice):
     def __init__(self, st):
         # Build or retrieve an ortho-based multidictionary.
@@ -162,21 +194,23 @@ class IslexOrthoLattice(MultiLattice):
             discardable=discard)
 
     @property
-    def retokens(self):
-        return [tuple(w.ortho for w in t) for t in self.transductions]
+    def transductions(self):
+        return [Transduction(t)
+                for t in super(IslexOrthoLattice, self).transductions]
+
+    @property
+    def retokenizations(self):
+        return [t.retokenization for t in self.transductions]
 
     @property
     def pronunciations(self):
-        return [tuple(itertools.chain.from_iterable(w.prons for w in t))
-                for t in self.transductions]
+        return [t.pronunciation for t in self.transductions]
 
     @property
     def syllabifications(self):
-        return [tuple(itertools.chain.from_iterable(pron.sylls
-                                                    for pron in prons))
-                for prons in self.pronunciations]
+        return [t.syllabification for t in self.transductions]
 
     @property
     def ipa_syllabifications(self):
-        return [tuple(''.join(syll.ipa) for syll in syllabification)
-                for syllabification in self.syllabifications]
+        return [t.ipa_syllabification
+                for t in self.transductions]

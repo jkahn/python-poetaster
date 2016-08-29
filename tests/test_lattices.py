@@ -85,9 +85,10 @@ def test_islex_transducer():
     ilat = IslexOrthoLattice("help me now!")
     assert ilat.transductions
     assert len(ilat.transductions) == 2
-    assert ('help', 'me', 'now') in ilat.retokens
-    assert ('he', 'l', 'p', 'me', 'now') in ilat.retokens
-    assert len(ilat.retokens) == 2  # FIXME: "he l p me now" not acceptable...
+    assert ('help', 'me', 'now') in ilat.retokenizations
+    assert ('he', 'l', 'p', 'me', 'now') in ilat.retokenizations
+    assert len(ilat.retokenizations) == 2
+    # FIXME: "he l p me now" not acceptable...
 
     assert len(ilat.pronunciations) == len(ilat.transductions)
 
