@@ -181,6 +181,10 @@ class Transduction(Sequence):
             pron.sylls for pron in self.pronunciation))
 
     @property
+    def syllable_count(self):
+        return len(self.syllabification)
+
+    @property
     def ipa_syllabification(self):
         return tuple(''.join(syll.ipa) for syll in self.syllabification)
 
