@@ -13,7 +13,7 @@ class Haiku(object):
     """Core components of a haiku."""
     @classmethod
     def from_string(cls, s):
-        """Returns iterator over all Haiku transductions possible.  If no
+        """Returns list of all Haiku transductions possible.  If no
         arrangement is possible, raise NotHaiku exception.
         """
         # Check that a string is given.
@@ -23,19 +23,18 @@ class Haiku(object):
         latt = IslexOrthoLattice(s)
 
         transductions = latt.transductions
+        print("found" , len(transductions), "transductions")
 
-        if not transductions:
+        if not len(transductions):
             raise NotHaiku("Could not tile string with ortho representations.")
 
-        num_yielded = 0
-        for t in transductions:
-            if t.syllable_count == 17:
-                yield cls(t)
-                num_yielded += 1
+        haikus = [cls(s, t) for t in transductions if t.syllable_count == 17]
 
-        if not num_yielded:
+        if not haikus:
             raise NotHaiku("No syllabification has 17 syllables (found %s)"
                            % [t.syllable_count for t in transductions])
+        return haikus
 
-    def __init__(self, transduction):
+    def __init__(self, raw, transduction):
+        self.raw = raw
         self.transduction = transduction

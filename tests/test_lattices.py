@@ -54,7 +54,7 @@ def test_discarding_gunge():
     assert "!" in discardable
     l = Lattice(s, keeper=keeper, discardable=discardable)
     assert l.end_sentinel == len(s)
-    print (l.paths)
+    # print (l.paths)
     assert ("i", "<3", "new york") in l.token_sequences
 
 
@@ -96,3 +96,9 @@ def test_islex_transducer():
             == tuple(len(t) for t in ilat.transductions))
 
     assert (u"hˈɛlp", u"mˈi", u"nˈaʊ") in ilat.ipa_syllabifications
+
+@pytest.mark.xfail
+def test_islex_explosion():
+    lat = IslexOrthoLattice("This is not a haiku either")
+    assert len(lat.transductions) < 40
+    print([t.retokenization for t in lat.transductions])
