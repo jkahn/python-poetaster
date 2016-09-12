@@ -3,6 +3,7 @@
 import six
 from poetaster.lattice import IslexOrthoLattice
 
+
 class NotHaiku(ValueError):
     """Error class indicating that input string was not a haiku (and why)."""
     # Hmmmm.  should this be a subclass of StopIteration?
@@ -23,7 +24,6 @@ class Haiku(object):
         latt = IslexOrthoLattice(s)
 
         transductions = latt.transductions
-        print("found" , len(transductions), "transductions")
 
         if not len(transductions):
             raise NotHaiku("Could not tile string with ortho representations.")

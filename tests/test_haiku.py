@@ -20,5 +20,5 @@ def test_not_haiku():
     assert_non_haiku("This is not a haiku.",
                      "No syllabification has 17 syllables")
 
-    # assert_non_haiku("This is not a haiku either", # eight
-    #                  "No syllabification has 17 syllables")
+    assert_non_haiku("This is not a haiku either", # eight
+                     "No syllabification has 17 syllables")

@@ -3,8 +3,8 @@
 from __future__ import print_function
 
 from poetaster.lattice import AlternatingLattice
-from poetaster.lattice import Lattice
 from poetaster.lattice import IslexOrthoLattice
+from poetaster.lattice import Lattice
 from poetaster.lattice import RegexGazette
 
 
