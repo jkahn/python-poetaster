@@ -16,61 +16,81 @@ import islex.data.core
 import islex.load
 
 
+def _traverse_reachable(paths, start):
+    """Returns set of all paths reachable from point."""
+    s = set([start])
+    for target in paths[start]:
+        s.update(_traverse_reachable(paths, target))
+    return s
+
+
 class BaseLattice(object):
-    """DAG of analyses, where every arc comes from provided dictionary.
+    def __init__(self, string, multiple_transductions=False,
+                 max_len=15):
+        self.sizes = range(1, max_len + 1)
+        self.string = string
+        self.explored = set()
+        self.frontier = set([0])
+        self.forward = defaultdict(list)
+        self.backward = defaultdict(list)
+        self.multiple_transductions = multiple_transductions
 
-    Initial implementation operates naively over substrings.
-    """
-    def __init__(self, st):
-        self._st = st
-        self._forward, self._backward = self._explore()
+        while self.frontier:
+            start = min(self.frontier)
+            self.frontier.discard(start)
+            self.explore_at(start)
+        self.prune()
 
-    def _explore(self, max_len=15):
-        sizes = range(1, max_len+1)  # or compute from dictionary
-        explored = set()
-        frontier = set([0])
-        viable = defaultdict(list)
-        backlinks = defaultdict(list)
-        while frontier:
-            start = max(frontier)
-            frontier.discard(start)
-            explored.add(start)
-            for l in sizes:
-                end = start + l
-                if end > self.end_sentinel:
-                    break
-                if self.legal(start, end):
-                    viable[start].append(end)
-                    backlinks[end].append(start)
-                    if end < len(self._st) and end not in explored:
-                        frontier.add(end)
-        return (viable, backlinks)
+    def admit(self, start, end):
+        """Subclasses make different choices about whether to admit.
+        Returning True means "this range is possible".  Base class
+        keeps track of paths that can be admitted.
+        """
+        raise NotImplementedError
 
-    def legal(self, start, end):
-        """Could the sequence from start to end be a legal token?"""
-        raise NotImplementedError("Base class has not implemented legal()")
+    def transduce(self, start, end):
+        """Subclasses make different decisions about what to return in
+        transduction.  Implementations should return a list of
+        possible transductions for this range.
+        """
+        raise NotImplementedError
+
+    def consider(self, start, end):
+        if self.admit(start, end):
+            self.forward[start].append(end)
+            self.backward[end].append(start)
+            return True
+        return False
+
+    def explore_at(self, start):
+        for l in self.sizes:
+            end = start + l
+            if end > len(self.string):
+                break
+            if self.consider(start, end):
+                if end < len(self.string) and end not in self.explored:
+                    self.frontier.add(end)
+        self.explored.add(start)
+
+    def prune(self):
+        """Removes links for those links that do not participate in full
+        coverage.
+        """
+        back_reachable = _traverse_reachable(self.backward, len(self.string))
+        for removable_forward in set(self.forward.keys()) - back_reachable:
+            del self.forward[removable_forward]
+
+        for removable_backward in set(self.backward.keys()) - back_reachable:
+            del self.backward[removable_backward]
 
     @property
     def end_sentinel(self):
-        return len(self._st)
-
-    def substr(self, start, end):
-        return self._st[start:end]
-
-    @property
-    def paths(self):
-        return tuple(self._all_paths(position=0, past_decorations=()))
-
-    @property
-    def token_sequences(self):
-        """iterable over tokenizations."""
-        return tuple(tuple(self.substr(b, e) for b, e in path)
-                     for path in self.paths)
+        return len(self.string)
 
     def _all_paths(self, position, past_decorations):
         """Returns iterator over sequences of (begin, end) pairs that
         completely cover the target."""
-        for endpt in self._forward[position]:
+        for endpt in self.forward[position]:
             decorations = past_decorations + ((position, endpt),)
             if endpt == self.end_sentinel:
                 yield decorations
@@ -80,46 +100,19 @@ class BaseLattice(object):
                         past_decorations=decorations):
                         yield p
 
-
-class RegexGazette(Container):
-    def __init__(self, pattern):
-        self._pattern = re.compile(pattern + r'$')
-        # assert pattern is regex?
-
-    def __contains__(self, thing):
-        return self._pattern.match(thing)
-
-
-class Lattice(BaseLattice):
-    """Uses two containers to determine what token sequences can be."""
-
-    def __init__(self, st, keeper, discardable=tuple()):
-        self._keeper = keeper  # assert compiled regex?
-        self._discardable = discardable
-        super(Lattice, self).__init__(st)
-
-    def legal(self, start, end):
-        s = self.substr(start, end)
-        return s in self._keeper or s in self._discardable
-
-    def _clean_paths(self, paths):
-        """Override superclass; only return paths that delimit contentful."""
-        _sent = set()
-        for path in paths:
-            clean = tuple((b, e) for b, e in path if self.contentful(b, e))
-            if clean not in _sent:
-                yield clean
-                _sent.add(clean)
-
     @property
     def paths(self):
-        return list(self._clean_paths(super(Lattice, self).paths))
+        return tuple(self._all_paths(position=0, past_decorations=()))
 
-    def contentful(self, start, end):
-        s = self.substr(start, end)
-        if s in self._discardable and s not in self._keeper:
-            return False
-        return True
+    def substr(self, start, end):
+        # raise ValueError if end > len(self.string)
+        return self.string[start:end]
+
+    @property
+    def token_sequences(self):
+        """iterable over tokenizations."""
+        return tuple(tuple(self.substr(b, e) for b, e in path)
+                     for path in self.paths)
 
     @property
     def transductions(self):
@@ -129,29 +122,109 @@ class Lattice(BaseLattice):
                     yield t
         return list(_itr())
 
-    def _transduce(self, b, e):
-        assert isinstance(self._keeper, Mapping)
-        return [self._keeper[self.substr(b, e)]]
-
     def _transductions(self, path, so_far):
         if not path:
             return so_far
         span = path[0]
 
         new_so_far = []
-        for t in self._transduce(*span):
+        for t in self.transduce(*span):
             for old_path in so_far:
                 new_so_far.append(old_path + tuple([t]))
         return self._transductions(path[1:], new_so_far)
 
 
-class MultiLattice(Lattice):
-    """Same as Lattice, only assumes keeper container has bag of 0+ labels
-    for each span.  Discardable container need not have such labels.
-    """
+class Lattice(BaseLattice):
+    """Simple tiling with one admitter. Works for non-whitespace languages?"""
+    def __init__(self, string, admitter, **kwargs):
+        # Value error if admitter not a container
+        self.admitter = admitter
+        super(Lattice, self).__init__(string, **kwargs)
 
-    def _transduce(self, b, e):
-        return list(self._keeper[self.substr(b, e)])
+    def admit(self, start, end):
+        return self.substr(start, end) in self.admitter
+
+    def transduce(self, b, e):
+        assert isinstance(self.admitter, Mapping)
+        if self.multiple_transductions:
+            return self.admitter[self.substr(b, e)]
+        else:
+            return [self.admitter[self.substr(b, e)]]
+
+
+class AlternatingLattice(BaseLattice):
+    """Explores assuming alternation between two types of legal.
+
+    Works well for spacer/content tokenization.
+    """
+    def __init__(self, string, content_admitter, spacing_admitter,
+                 discard_spacers=True,
+                 **kwargs):
+        # Value errors if admitters not containers
+        self.content_admitter = content_admitter
+        self.spacing_admitter = spacing_admitter
+        self.discard_spacers = discard_spacers
+        self.content_ends = set([0])
+        self.spacing_ends = set([0])
+        super(AlternatingLattice, self).__init__(string, **kwargs)
+
+    def admit(self, start, end):
+        s = self.substr(start, end)
+        # print("testing substring '" + s + "' from", start, "to", end)
+        matched = False
+        if start in self.spacing_ends and s in self.content_admitter:
+                self.content_ends.add(end)
+                # print ("matched '" + s + "'")
+                matched = True
+        if start in self.content_ends and s in self.spacing_admitter:
+                self.spacing_ends.add(end)
+                # print ("spacing matched '" + s + "'")
+                matched = True
+        return matched
+
+    def transduce(self, b, e):
+        """Same as for simple Lattice, except two transducers."""
+        assert isinstance(self.content_admitter, Mapping)
+        assert self.discard_spacers or isinstance(self.spacing_admitter,
+                                                  Mapping)
+        s = self.substr(b, e)
+        if self.discard_spacers or s in self.content_admitter:
+            if self.multiple_transductions:
+                return self.content_admitter[s]
+            else:
+                return [self.content_admitter[s]]
+        else:
+            if self.multiple_transductions:
+                return self.spacing_admitter[s]
+            else:
+                return [self.spacing_admitter[s]]
+
+    @property
+    def paths(self):
+        raw = super(AlternatingLattice, self).paths
+        if self.discard_spacers:
+            return list(self._clean_paths(raw))
+        else:
+            return raw
+
+    def _clean_paths(self, paths):
+        """Only return paths that delimit contentful."""
+        _sent = set()
+        for path in paths:
+            clean = tuple((b, e) for b, e in path
+                          if self.substr(b, e) in self.content_admitter)
+            if clean not in _sent:
+                yield clean
+                _sent.add(clean)
+
+
+class RegexGazette(Container):
+    def __init__(self, pattern):
+        self._pattern = re.compile(pattern + r'$')
+        # assert pattern is regex?
+
+    def __contains__(self, thing):
+        return self._pattern.match(thing)
 
 
 class Transduction(Sequence):
@@ -189,13 +262,15 @@ class Transduction(Sequence):
         return tuple(''.join(syll.ipa) for syll in self.syllabification)
 
 
-class IslexOrthoLattice(MultiLattice):
+class IslexOrthoLattice(AlternatingLattice):
     def __init__(self, st):
         # Build or retrieve an ortho-based multidictionary.
         discard = RegexGazette(r'[0-9<>\'",.?!:;\s]+')
         super(IslexOrthoLattice, self).__init__(
-            st=st, keeper=islex.load.ortho_mapping(islex.data.core),
-            discardable=discard)
+            string=st,
+            content_admitter=islex.load.ortho_mapping(islex.data.core),
+            spacing_admitter=discard, discard_spacers=True,
+            multiple_transductions=True)
 
     @property
     def transductions(self):
@@ -209,10 +284,6 @@ class IslexOrthoLattice(MultiLattice):
     @property
     def pronunciations(self):
         return [t.pronunciation for t in self.transductions]
-
-    @property
-    def syllabifications(self):
-        return [t.syllabification for t in self.transductions]
 
     @property
     def ipa_syllabifications(self):
