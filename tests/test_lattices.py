@@ -8,8 +8,6 @@ from poetaster.lattice import Lattice
 from poetaster.lattice import RegexGazette
 
 
-
-
 def test_explorer():
     e = Lattice("a bc", admitter=frozenset(["a", " ", "d", "bc"]))
     assert e.admit(0, 1)

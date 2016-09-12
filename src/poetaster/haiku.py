@@ -33,6 +33,9 @@ class Haiku(object):
         if not haikus:
             raise NotHaiku("No syllabification has 17 syllables (found %s)"
                            % [t.syllable_count for t in transductions])
+
+        # Filter for 5/7/5 pattern?
+
         return haikus
 
     def __init__(self, raw, transduction):
