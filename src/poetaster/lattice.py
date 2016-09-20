@@ -227,6 +227,11 @@ class RegexGazette(Container):
         return self._pattern.match(thing)
 
 
+class SegmentationError(ValueError):
+    """Raise this when there's a headache segmenting a lattice."""
+    pass
+
+
 class Transduction(Sequence):
     """Consider moving Transduction and IslexOrthoLattice to a separate
     module."""
@@ -238,6 +243,41 @@ class Transduction(Sequence):
 
     def __getitem__(self, key):
         return self._words[key]
+
+    def syllable_range(self, begin, end):
+        """Returns new Transduction for each range."""
+        sylls = self.syllabification
+        if begin not in range(0, len(sylls)):
+            raise ValueError("begin value %s out of range" % begin)
+        if end not in range(0, len(sylls) + 1):
+            raise ValueError("end value %s out of range" % end)
+
+        cursor = 0
+        words_in_range = []
+        for w in self._words:
+            w_syll_count = sum(len(pron.sylls) for pron in w.prons)
+            next_cursor = cursor + w_syll_count
+            # print("begin", begin, "cursor", cursor, "end", end,
+            #       "word", w.ortho)
+            if begin <= cursor < end:
+                if next_cursor <= end:
+                    words_in_range.append(w)
+                else:
+                    # next_cursor > end
+                    raise SegmentationError(
+                        "word '%s' broken across end of range"
+                        % w.ortho)
+            elif end <= cursor:
+                break
+            else:
+                # cursor < begin
+                if begin < next_cursor < end:
+                    raise SegmentationError(
+                        "word '%s' broken across beginning of range"
+                        % w.ortho)
+
+            cursor = next_cursor
+        return Transduction(words_in_range)
 
     @property
     def retokenization(self):
