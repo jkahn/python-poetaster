@@ -26,7 +26,7 @@ project = u'Poetaster'
 year = '2016'
 author = u'Jeremy G. Kahn'
 copyright = '{0}, {1}'.format(year, author)
-version = release = u'0.1.1dev1'
+version = release = u'0.1.1'
 
 pygments_style = 'trac'
 templates_path = ['.']
