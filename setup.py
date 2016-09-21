@@ -24,7 +24,7 @@ def read(*names, **kwargs):
 
 setup(
     name='poetaster',
-    version='0.1.0dev1',
+    version='0.1.1dev1',
     license='BSD',
     description='Poetry tricks and tools for found -- and generated -- poetry.',
     long_description='%s\n%s' % (
